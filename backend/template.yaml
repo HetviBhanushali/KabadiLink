@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Minimal KabadiLink prototype backend (no authentication; demo use only)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 15
+    MemorySize: 256
+    Environment:
+      Variables:
+        PICKUPS_TABLE: !Ref PickupsTable
+        PLASTIC_RATE: '14'
+        EWASTE_RATE: '40'
+        PLASTIC_POINTS_PER_KG: '10'
+        WET_POINTS_PER_KG: '2'
+        EWASTE_POINTS_PER_KG: '20'
+        WET_DAILY_CAP_KG: '10'
+
+Resources:
+  KabadiLinkApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: '$default'
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - content-type
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - OPTIONS
+
+  PickupsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-pickups'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: hid
+          AttributeType: S
+        - AttributeName: cid
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: household-date-index
+          KeySchema:
+            - AttributeName: hid
+              KeyType: HASH
+            - AttributeName: date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: collector-date-index
+          KeySchema:
+            - AttributeName: cid
+              KeyType: HASH
+            - AttributeName: date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: status-date-index
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  KabadiLinkFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PickupsTable
+      Events:
+        ListPickups:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref KabadiLinkApi
+            Path: /pickups
+            Method: GET
+        CreatePickup:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref KabadiLinkApi
+            Path: /pickups
+            Method: POST
+        GetPickup:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref KabadiLinkApi
+            Path: /pickups/{id}
+            Method: GET
+        UpdatePickupStatus:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref KabadiLinkApi
+            Path: /pickups/{id}/status
+            Method: PATCH
+        RecordWeighIn:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref KabadiLinkApi
+            Path: /pickups/{id}/weigh-in
+            Method: PATCH
+
+Outputs:
+  ApiBaseUrl:
+    Description: Base URL for the KabadiLink HTTP API
+    Value: !Sub 'https://${KabadiLinkApi}.execute-api.${AWS::Region}.amazonaws.com'
+  PickupsTableName:
+    Description: DynamoDB table storing pickup requests
+    Value: !Ref PickupsTable

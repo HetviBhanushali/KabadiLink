@@ -1,0 +1,9 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /pickups",
+  "rawPath": "/pickups",
+  "requestContext": {"http": {"method": "POST", "path": "/pickups"}},
+  "headers": {"content-type": "application/json"},
+  "body": "{\"hid\":\"h1\",\"date\":\"2026-10-15\",\"slot\":\"8–10 AM\",\"address\":\"Sector 62, Noida\",\"note\":\"Call on arrival\",\"kg\":{\"plastic\":3,\"wet\":5,\"ewaste\":1}}",
+  "isBase64Encoded": false
+}
